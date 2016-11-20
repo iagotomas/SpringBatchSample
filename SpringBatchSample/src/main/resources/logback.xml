@@ -1,0 +1,7 @@
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    <logger name="org.springframework.batch" level="DEBUG"/>
+    <logger name="org.springframework.jdbc" level="INFO"/>
+    <logger name="org.springframework.test" level="INFO"/>
+    <logger name="org.springframework.beans" level="INFO"/>
+</configuration>
