@@ -1,4 +1,4 @@
-package com.tomas.spring.batckh.sample.config;
+package com.tomas.spring.batch.sample.config;
 
 import javax.sql.DataSource;
 

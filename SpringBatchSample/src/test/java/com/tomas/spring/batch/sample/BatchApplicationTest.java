@@ -1,4 +1,4 @@
-package com.tomas.spring.batckh.sample;
+package com.tomas.spring.batch.sample;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Matchers.any;
@@ -35,8 +35,8 @@ import org.springframework.test.context.junit4.SpringRunner;
 import com.tomas.spring.batch.sample.batch.JobStates;
 import com.tomas.spring.batch.sample.batch.PersonItemProcessor;
 import com.tomas.spring.batch.sample.config.BatchConfiguration;
+import com.tomas.spring.batch.sample.config.TestBatchConfig;
 import com.tomas.spring.batch.sample.domain.Person;
-import com.tomas.spring.batckh.sample.config.TestBatchConfig;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = { BatchConfiguration.class, TestBatchConfig.class })
