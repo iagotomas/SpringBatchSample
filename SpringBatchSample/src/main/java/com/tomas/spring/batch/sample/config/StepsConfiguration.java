@@ -5,9 +5,15 @@ import javax.sql.DataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.builder.FlowBuilder;
+import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.FlowExecutionStatus;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.BeanPropertyItemSqlParameterSourceProvider;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
@@ -29,7 +35,53 @@ import com.tomas.spring.batch.sample.domain.Person;
 public class StepsConfiguration {
 
 	@Autowired
-	public DataSource dataSource;
+	public DataSource			dataSource;
+
+	@Autowired
+	public StepBuilderFactory	stepBuilderFactory;
+
+	@Autowired
+	public ItemReader<Person>	reader;
+
+	@Autowired
+	public PersonItemProcessor	processor;
+
+	@Autowired
+	public ItemWriter<Person>	writer;
+
+	@Autowired
+	public JobExecutionDecider	decider;
+
+	@Bean
+	public Flow flow(JdbcTemplate template) {
+		final FlowBuilder<Flow> builder = new FlowBuilder<Flow>("flow1");
+		return builder.start(decider).on(JobStates.RUN.toString()).to(step1()).from(decider)
+				.on(JobStates.PAUSED.toString()).end(JobStates.PAUSED.toString()).build();
+	}
+
+	@Bean
+	public Step step1() {
+		return stepBuilderFactory.get("step1").<Person, Person>chunk(1).reader(reader).processor(processor)
+				.writer(writer).build();
+	}
+
+	@Bean
+	public Step step2() {
+		return stepBuilderFactory.get("step2").<Person, Person>chunk(1).reader(reader).processor(processor)
+				.writer(writer).build();
+	}
+
+	@Bean
+	public Step step3a() {
+		return stepBuilderFactory.get("step3a").<Person, Person>chunk(1).reader(reader).processor(processor)
+				.writer(writer).build();
+	}
+
+	@Bean
+	public Step step3b() {
+		return stepBuilderFactory.get("step3b").<Person, Person>chunk(1).reader(reader).processor(processor)
+				.writer(writer).build();
+	}
 
 	@Bean
 	public JobExecutionDecider decider(JdbcTemplate jdbcTemplate) {

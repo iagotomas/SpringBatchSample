@@ -1,5 +1,6 @@
 package com.tomas.spring.batch.sample.config;
 
+import javax.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
@@ -7,23 +8,20 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
-import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.tomas.spring.batch.sample.batch.JobCompletionNotificationListener;
-import com.tomas.spring.batch.sample.batch.JobStates;
-import com.tomas.spring.batch.sample.batch.PersonItemProcessor;
-import com.tomas.spring.batch.sample.domain.Person;
 
 @Configuration
 @EnableBatchProcessing
@@ -33,49 +31,66 @@ public class BatchConfiguration extends DefaultBatchConfigurer {
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
 
-	@Autowired
-	public StepBuilderFactory stepBuilderFactory;
 
 	@Autowired
 	public DataSource dataSource;
 
-	@Autowired
-	public ItemReader<Person> reader;
 
-	@Autowired
-	PersonItemProcessor processor;
-
-	@Autowired
-	ItemWriter<Person> writer;
-
-	@Autowired
-	JobExecutionDecider decider;
 	// end::readerwriterprocessor[]
+
+	@Bean
+	public TaskExecutor taskExecutor() {
+		return new SimpleAsyncTaskExecutor("springBatch-");
+	}
+
+	@Autowired
+	@Resource(name = "decider")
+	JobExecutionDecider	decider1;
+
+	@Autowired
+	Step				step1;
+
+	@Autowired
+	@Resource(name = "flow2b")
+	Flow				flow2b;
+
+	@Autowired
+	@Resource(name = "flow2a")
+	Flow				flow2a;
 
 	@Override
 	public void setDataSource(DataSource dataSource) {
 		super.setDataSource(dataSource);
 	}
+
+	@Bean
+	@Qualifier("splitFlow")
+	public Flow splitFlow() {
+
+		final FlowBuilder<Flow> splitBuilder = new FlowBuilder<>("splitFlow");
+		splitBuilder.split(taskExecutor()).add(flow2a, flow2b);
+		return splitBuilder.build();
+	}
+
+	@Bean
+	@Qualifier("completeFlow")
+	public Flow completeFlow() {
+		final FlowBuilder<Flow> builder = new FlowBuilder<>("completeFlow");
+		builder
+		.start(decider1)
+		.on("RUN")
+			.to(step1)
+			.next(splitFlow())
+		.from(decider1)
+		.on("PAUSED")
+			.to(splitFlow());
+		return builder.build();
+	}
 	// tag::jobstep[]
 	@Bean
 	public Job importUserJob(JobCompletionNotificationListener listener, JdbcTemplate template) {
-		final Flow flow1 = flow1(template);
 		return jobBuilderFactory.get("importUserJob").incrementer(new RunIdIncrementer()).listener(listener)
-				.start(flow1).on("PAUSED").end("COMPLETED WITH PAUSE").from(flow1).on("COMPLETED")
-				.end("COMPLETED WITHOUT PAUSE").end().build();
-	}
-
-	@Bean
-	public Flow flow1(JdbcTemplate template) {
-		final FlowBuilder<Flow> builder = new FlowBuilder<Flow>("flow1");
-		return builder.start(decider).on(JobStates.RUN.toString()).to(step1()).from(decider)
-				.on(JobStates.PAUSED.toString()).end(JobStates.PAUSED.toString()).build();
-	}
-
-	@Bean
-	public Step step1() {
-		return stepBuilderFactory.get("step1").<Person, Person>chunk(1).reader(reader).processor(processor)
-				.writer(writer).build();
+				.start(completeFlow()).end().build();
 	}
 	// end::jobstep[]
 }
