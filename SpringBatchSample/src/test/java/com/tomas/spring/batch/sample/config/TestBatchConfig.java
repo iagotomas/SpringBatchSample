@@ -1,5 +1,7 @@
 package com.tomas.spring.batch.sample.config;
 
+import java.util.function.Predicate;
+
 import javax.annotation.Resource;
 import javax.sql.DataSource;
 
@@ -7,10 +9,14 @@ import org.springframework.batch.core.ChunkListener;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.flow.Flow;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
+import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.launch.support.SimpleJobOperator;
 import org.springframework.batch.core.listener.ChunkListenerSupport;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.scope.context.StepContext;
@@ -31,26 +37,6 @@ import com.tomas.spring.batch.sample.domain.Person;
 
 @Configuration
 public class TestBatchConfig {
-
-	@Bean
-	public JobLauncherTestUtils jobLauncherTestUtils() {
-		final JobLauncherTestUtils utils = new JobLauncherTestUtils();
-		return utils;
-	}
-
-	@Bean
-	public JobCompletionNotificationListener listener(JdbcTemplate jdbcTemplate) {
-		return new JobCompletionNotificationListener(jdbcTemplate);
-	}
-
-	@Bean
-	public JdbcBatchItemWriter<Person> writer(DataSource dataSource) {
-		final JdbcBatchItemWriter<Person> writer = new JdbcBatchItemWriter<Person>();
-		writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<Person>());
-		writer.setSql("INSERT INTO people (first_name, last_name) VALUES (:firstName, :lastName)");
-		writer.setDataSource(dataSource);
-		return writer;
-	}
 
 	@Autowired
 	Tasklet				tasklet;
@@ -88,12 +74,14 @@ public class TestBatchConfig {
 
 	@Autowired
 	StepBuilderFactory	stepBuilderFactory;
-	@Bean
-	public Step step1() {
-		return stepBuilderFactory.get("step1").tasklet(tasklet).build();
-	}
 
+	@Autowired
+	JobRegistry				registry;
+	@Autowired
+	JobExplorer				explorer;
 
+	@Autowired
+	Predicate<ChunkContext> predicate;
 
 	private ChunkListener chunkListener() {
 		return new ChunkListenerSupport() {
@@ -102,11 +90,50 @@ public class TestBatchConfig {
 			public void afterChunk(ChunkContext context) {
 				final StepContext stepContext = context.getStepContext();
 				final StepExecution stepExecution = stepContext.getStepExecution();
-				stepExecution.setExitStatus(new ExitStatus("PAUSED", "Job Paused due to time box"));
-				stepExecution.setTerminateOnly();
+				if (predicate.test(context)) {
+					stepExecution.setExitStatus(new ExitStatus("PAUSED", "Job Paused due to time box"));
+					stepExecution.setTerminateOnly();
+				}
 			}
 		};
 	}
+
+	@Bean
+	public JobLauncherTestUtils jobLauncherTestUtils() {
+		final JobLauncherTestUtils utils = new JobLauncherTestUtils();
+		return utils;
+	}
+
+	@Bean
+	public JobCompletionNotificationListener listener(JdbcTemplate jdbcTemplate) {
+		return new JobCompletionNotificationListener(jdbcTemplate);
+	}
+
+	@Bean
+	public JdbcBatchItemWriter<Person> writer(DataSource dataSource) {
+		final JdbcBatchItemWriter<Person> writer = new JdbcBatchItemWriter<Person>();
+		writer.setItemSqlParameterSourceProvider(new BeanPropertyItemSqlParameterSourceProvider<Person>());
+		writer.setSql("INSERT INTO people (first_name, last_name) VALUES (:firstName, :lastName)");
+		writer.setDataSource(dataSource);
+		return writer;
+	}
+
+	@Bean
+	public JobOperator jobOperator() {
+
+		final SimpleJobOperator jobOperator = new SimpleJobOperator();
+		jobOperator.setJobLauncher(jobLauncherTestUtils().getJobLauncher());
+		jobOperator.setJobRepository(jobLauncherTestUtils().getJobRepository());
+		jobOperator.setJobExplorer(explorer);
+		jobOperator.setJobRegistry(registry);
+		return jobOperator;
+	}
+
+	@Bean
+	public Step step1() {
+		return stepBuilderFactory.get("step1").tasklet(tasklet).build();
+	}
+
 	@Bean
 	@Qualifier("flow2a")
 	public Flow flow2a() {

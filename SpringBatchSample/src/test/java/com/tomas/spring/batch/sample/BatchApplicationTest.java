@@ -1,21 +1,30 @@
 package com.tomas.spring.batch.sample;
 
-// @formatter:on
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Matchers.any;
 
-import javax.sql.DataSource;
+import org.springframework.beans.factory.annotation.*;
+import org.springframework.boot.test.context.*;
+import org.springframework.boot.test.mock.mockito.*;
+import org.springframework.test.context.junit4.*;
+
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.BDDMockito.*;
+
+import java.util.function.Predicate;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.JobExecution;
-import org.springframework.batch.core.configuration.JobRegistry;
-import org.springframework.batch.core.explore.support.JobExplorerFactoryBean;
 import org.springframework.batch.core.job.flow.FlowExecutionStatus;
 import org.springframework.batch.core.job.flow.JobExecutionDecider;
-import org.springframework.batch.core.launch.support.SimpleJobOperator;
+import org.springframework.batch.core.launch.JobOperator;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
@@ -23,7 +32,6 @@ import org.springframework.batch.item.NonTransientResourceException;
 import org.springframework.batch.item.ParseException;
 import org.springframework.batch.item.UnexpectedInputException;
 import org.springframework.batch.test.JobLauncherTestUtils;
-// @formatter:off
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -39,6 +47,7 @@ import com.tomas.spring.batch.sample.domain.Person;
 @SpringBootTest(classes = { BatchConfiguration.class, TestBatchConfig.class })
 public class BatchApplicationTest {
 
+	private static final Logger LOG = LoggerFactory.getLogger(BatchApplicationTest.class);
 	@Autowired
 	JobLauncherTestUtils	jobLauncher;
 
@@ -73,6 +82,9 @@ public class BatchApplicationTest {
 	
 	@MockBean(name = "decider")
 	JobExecutionDecider		decider;
+	
+	@MockBean
+	Predicate<ChunkContext> predicate;
 
 	private Person person(String firstName, String lastName) {
 		return new Person(firstName, lastName);
@@ -102,25 +114,40 @@ public class BatchApplicationTest {
 
 	
 	@Autowired
-	DataSource dataSource;
-	@Autowired
-	JobRegistry registry;
+	JobOperator	jobOperator;
+	
+	@Autowired 
+	JobRepository jobRepository;
+
 	@Test
 	public void testJob() throws Exception {
-		final JobExplorerFactoryBean factory = new JobExplorerFactoryBean();
-		factory.setDataSource(dataSource);
-		factory.afterPropertiesSet();
+		given(predicate.test(any())).willReturn(false);
+		final JobExecution jobExecution = jobLauncher.launchJob();
+		jobRepository.update(jobExecution);
+		if(!jobExecution.getExitStatus().equals(ExitStatus.COMPLETED)) {
+			LOG.info("Relaunching job instance id {} ...",jobExecution.getId());
+			jobOperator.restart(jobExecution.getId());
+			fail("Shouldn't had relaunched");
+		}
+	}
+	
+	@Test
+	public void testRelaunchJob() throws Exception {
 
-		final SimpleJobOperator jobOperator = new SimpleJobOperator();
-		jobOperator.setJobLauncher(jobLauncher.getJobLauncher());
-		jobOperator.setJobRepository(jobLauncher.getJobRepository());
-		jobOperator.setJobExplorer(factory.getObject());
-		jobOperator.setJobRegistry(registry);
-		
+		given(predicate.test(any())).willReturn(true);
+//		final JobExplorerFactoryBean factory = new JobExplorerFactoryBean();
+//		factory.setDataSource(dataSource);
+//		factory.afterPropertiesSet();
+
 		
 		final JobExecution jobExecution = jobLauncher.launchJob();
+		jobRepository.update(jobExecution);
 		if(!jobExecution.getExitStatus().equals(ExitStatus.COMPLETED)) {
+			LOG.info("Relaunching job instance id {} ...",jobExecution.getId());
 			jobOperator.restart(jobExecution.getId());
+		}
+		else {
+			fail("Should had relaunched");
 		}
 	}
 }
