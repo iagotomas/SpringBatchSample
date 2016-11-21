@@ -96,14 +96,6 @@ public class BatchApplicationTest {
 		given(reader.read()).willReturn(person("Iago", "Tomas"), person("Iago", "Tomas"), null);
 		given(decider.decide(any(), any())).willReturn(new FlowExecutionStatus(JobStates.RUN.toString()));
 		given(processor.process(any())).willReturn(person("Iago", "Tomas"), person("Iago2", "Tomas"));
-		// given(decider2a.decide(any(), any())).willAnswer(new Answer<FlowExecutionStatus>() {
-		// @Override
-		// public FlowExecutionStatus answer(InvocationOnMock invocation) throws Throwable {
-		// // TODO Auto-generated method stub
-		// return null;
-		// }
-		// });
-
 		given(decider2a.decide(any(), any())).willReturn(new FlowExecutionStatus(JobStates.RUN.toString()));
 		given(decider2b.decide(any(), any())).willReturn(new FlowExecutionStatus(JobStates.RUN.toString()));
 		given(reader2a.read()).willReturn(person("Iago", "Tomas"), person("Iago", "Tomas"), null);
@@ -135,11 +127,6 @@ public class BatchApplicationTest {
 	public void testRelaunchJob() throws Exception {
 
 		given(predicate.test(any())).willReturn(true);
-//		final JobExplorerFactoryBean factory = new JobExplorerFactoryBean();
-//		factory.setDataSource(dataSource);
-//		factory.afterPropertiesSet();
-
-		
 		final JobExecution jobExecution = jobLauncher.launchJob();
 		jobRepository.update(jobExecution);
 		if(!jobExecution.getExitStatus().equals(ExitStatus.COMPLETED)) {
