@@ -10,6 +10,7 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.configuration.JobRegistry;
+import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.job.builder.FlowBuilder;
@@ -103,6 +104,15 @@ public class TestBatchConfig {
 		final JobLauncherTestUtils utils = new JobLauncherTestUtils();
 		return utils;
 	}
+
+
+    	@Bean
+	public JobRegistryBeanPostProcessor jobRegistryBeanPostProcessor(final JobRegistry jobRegistry)
+	{
+        	final JobRegistryBeanPostProcessor jobRegistryBeanPostProcessor = new JobRegistryBeanPostProcessor();
+	        jobRegistryBeanPostProcessor.setJobRegistry(jobRegistry);
+       		return jobRegistryBeanPostProcessor;
+    	}
 
 	@Bean
 	public JobCompletionNotificationListener listener(JdbcTemplate jdbcTemplate) {
