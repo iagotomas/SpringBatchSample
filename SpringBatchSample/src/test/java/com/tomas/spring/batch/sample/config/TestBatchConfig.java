@@ -10,8 +10,8 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.configuration.JobRegistry;
-import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.support.JobRegistryBeanPostProcessor;
 import org.springframework.batch.core.explore.JobExplorer;
 import org.springframework.batch.core.job.builder.FlowBuilder;
 import org.springframework.batch.core.job.flow.Flow;
@@ -153,8 +153,8 @@ public class TestBatchConfig {
 		final Step step3a = stepBuilderFactory.get("step3a").<Person, Person>chunk(1).reader(reader3a).writer(writer3a)
 				.build();
 		final FlowBuilder<Flow> flowBuilder = new FlowBuilder<Flow>("flow2a");
-		flowBuilder.start(decider2a).on("RUN").to(step2a).from(decider2a).on("PAUSED").end("PAUSED");
-		return flowBuilder.next(step3a).build();
+		flowBuilder.start(decider2a).on("RUN").to(step2a).next(step3a).from(decider2a).on("PAUSED").to(step3a);
+		return flowBuilder.build();
 	}
 
 	@Bean

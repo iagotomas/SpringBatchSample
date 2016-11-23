@@ -1,15 +1,8 @@
 package com.tomas.spring.batch.sample;
 
+import static org.assertj.core.api.Assertions.fail;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Matchers.any;
-
-import org.springframework.beans.factory.annotation.*;
-import org.springframework.boot.test.context.*;
-import org.springframework.boot.test.mock.mockito.*;
-import org.springframework.test.context.junit4.*;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.BDDMockito.*;
 
 import java.util.function.Predicate;
 
@@ -115,9 +108,9 @@ public class BatchApplicationTest {
 	public void testJob() throws Exception {
 		given(predicate.test(any())).willReturn(false);
 		final JobExecution jobExecution = jobLauncher.launchJob();
-		jobRepository.update(jobExecution);
 		if(!jobExecution.getExitStatus().equals(ExitStatus.COMPLETED)) {
-			LOG.info("Relaunching job instance id {} ...",jobExecution.getId());
+			LOG.info("Relaunching job instance id {} [{}] ...", jobExecution.getId(),
+					jobOperator.getSummary(jobExecution.getId()));
 			jobOperator.restart(jobExecution.getId());
 			fail("Shouldn't had relaunched");
 		}
@@ -130,7 +123,10 @@ public class BatchApplicationTest {
 		final JobExecution jobExecution = jobLauncher.launchJob();
 		jobRepository.update(jobExecution);
 		if(!jobExecution.getExitStatus().equals(ExitStatus.COMPLETED)) {
-			LOG.info("Relaunching job instance id {} ...",jobExecution.getId());
+			Thread.sleep(100);
+			LOG.info("Relaunching job instance id {} [{}] ...", jobExecution.getId(),
+					jobOperator.getSummary(jobExecution.getId()));
+
 			jobOperator.restart(jobExecution.getId());
 		}
 		else {
